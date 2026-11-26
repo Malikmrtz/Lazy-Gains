@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Lazy Gains</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Layout: one phone-width column, four views (meals, shop, snacks, weight) switched by a bottom tab bar and the URL hash. */
+:root{
+  --bg:#F2F5F3;
+  --surface:#FFFFFF;
+  --fg:#131C18;
+  --muted:#5B6A63;
+  --line:#D9E1DC;
+  --soft:#E4EBE7;
+  --accent:#C8102E;
+  --accent-fg:#FFFFFF;
+  --protein:#1F7A4D;
+  --warn:#B45309;
+  --font-display:"Space Grotesk","Inter",system-ui,sans-serif;
+  --font-body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1311;--surface:#161D1A;--fg:#E8EEEA;--muted:#98A69E;--line:#26312C;--soft:#222D28;
+    --accent:#FF5A68;--accent-fg:#14080A;--protein:#4CC38A;--warn:#F5A524;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1311;--surface:#161D1A;--fg:#E8EEEA;--muted:#98A69E;--line:#26312C;--soft:#222D28;
+  --accent:#FF5A68;--accent-fg:#14080A;--protein:#4CC38A;--warn:#F5A524;
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;
+  padding-block:20px 112px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  background:var(--bg);color:var(--fg);
+  font:15px/1.5 var(--font-body);
+}
+h1,h2,h3{font-family:var(--font-display);margin:0;line-height:1.15;text-wrap:balance}
+h1{font-size:1.7rem;letter-spacing:-.01em}
+h2{font-size:1.15rem}
+h3{font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:500}
+p,ul{margin:0}
+ul{padding:0;list-style:none}
+b,strong{font-weight:600}
+.muted{color:var(--muted)}
+.small{font-size:.82rem}
+.num,.nums,.price,.big{font-variant-numeric:tabular-nums}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.app{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.top .sub{color:var(--muted);font-size:.85rem;margin-top:2px}
+.target{font-size:.78rem;color:var(--muted);text-align:right;line-height:1.35}
+.target b{color:var(--fg);font-family:var(--font-display);font-size:.95rem}
+
+.view{display:flex;flex-direction:column;gap:14px;min-width:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.sumhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.note{border-left:3px solid var(--accent);padding:2px 0 2px 12px;color:var(--fg);font-size:.9rem}
+
+.days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.day{position:relative;min-height:44px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:10px;font:500 .82rem var(--font-body);cursor:pointer}
+.day.on{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.day.today::after{content:"";position:absolute;left:50%;bottom:5px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:currentColor}
+
+.meter+.meter{margin-top:10px}
+.mrow{display:flex;justify-content:space-between;gap:8px;font-size:.88rem;margin-bottom:4px}
+.bar{height:8px;border-radius:99px;background:var(--soft);overflow:hidden}
+.bar>i{display:block;height:100%;border-radius:99px;background:var(--fg);transition:width .25s ease}
+.meter.p .bar>i{background:var(--protein)}
+.bar.over>i{background:var(--warn)}
+
+.rows{padding:4px 16px}
+.rows li+li{border-top:1px solid var(--line)}
+.rowbtn{
+  display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;
+  width:100%;padding:12px 0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;
+}
+.rowbtn.static{grid-template-columns:minmax(0,1fr) auto;cursor:default}
+.rowbtn.static .tick{display:none}
+.tick{width:24px;height:24px;border:2px solid var(--line);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.tick.on{background:var(--accent);border-color:var(--accent)}
+.tick.on::after{content:"";width:6px;height:11px;margin-top:-2px;border:solid var(--accent-fg);border-width:0 2px 2px 0;transform:rotate(45deg)}
+.mtext{display:flex;flex-direction:column;min-width:0}
+.slot{font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.detail{font-size:.84rem;color:var(--muted)}
+.nums{text-align:right;font-size:.8rem;color:var(--muted);line-height:1.35;white-space:nowrap}
+.nums b{color:var(--fg)}
+.nums b.p{color:var(--protein)}
+.price{font-size:.9rem;font-weight:500}
+.mealbtn.is-done .mtext strong{text-decoration:line-through;text-decoration-color:var(--muted)}
+
+.shopgroup{display:flex;flex-direction:column;gap:6px}
+.big{font-family:var(--font-display);font-size:2rem;line-height:1.1}
+.big small{font-family:var(--font-body);font-size:.85rem;color:var(--muted);font-weight:400}
+.field{display:flex;flex-direction:column;gap:4px;font-size:.82rem;color:var(--muted);flex:1 1 120px;min-width:0}
+input{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-height:44px;width:100%;min-width:0}
+.btn{background:var(--accent);color:var(--accent-fg);border:0;border-radius:10px;min-height:44px;padding:0 18px;font:600 .95rem var(--font-body);cursor:pointer}
+.btn.ghost{background:none;color:var(--muted);border:1px solid var(--line);min-height:36px;padding:0 12px;font-weight:500;font-size:.8rem}
+.form{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.chart svg{display:block;width:100%;height:auto}
+.grid{stroke:var(--line);stroke-width:1}
+.target-line{stroke:var(--muted);stroke-width:1.5;stroke-dasharray:4 4}
+.actual{fill:none;stroke:var(--accent);stroke-width:2.5;stroke-linejoin:round}
+.dot{fill:var(--accent);stroke:var(--surface);stroke-width:2}
+.ax{fill:var(--muted);font:11px var(--font-body)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.8rem;color:var(--muted);margin-top:6px}
+.legend span::before{content:"";display:inline-block;width:16px;height:0;border-top:2.5px solid var(--accent);vertical-align:middle;margin-right:6px}
+.legend span+span::before{border-top:2px dashed var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.stat{display:flex;flex-direction:column}
+.stat b{font-family:var(--font-display);font-size:1.25rem;font-variant-numeric:tabular-nums}
+.stat span{font-size:.75rem;color:var(--muted)}
+.tag{display:inline-block;font-size:.68rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:0 6px;margin-left:6px}
+.wrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0}
+.msg{color:var(--warn);font-size:.85rem;min-height:1.2em}
+.rules{display:flex;flex-direction:column;gap:8px;padding-left:18px;list-style:disc}
+
+.tabs{
+  position:fixed;left:0;right:0;bottom:0;z-index:5;
+  background:var(--surface);border-top:1px solid var(--line);
+  padding:6px max(16px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
+}
+.tabs .in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+.tabs a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:50px;color:var(--muted);text-decoration:none;font-size:.72rem;font-weight:500;border-radius:10px}
+.tabs a[aria-current="page"]{color:var(--accent)}
+.tabs svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tabs svg .f{fill:currentColor;stroke:none}
+
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+@media (max-width:380px){.nums{font-size:.74rem}.big{font-size:1.7rem}}
+</style>
+
+<div class="app">
+  <header class="top">
+    <div>
+      <h1>Lazy Gains</h1>
+      <p class="sub" id="dateLabel">&nbsp;</p>
+    </div>
+    <p class="target">Daily target<br><b>2,000</b> kcal · <b>150</b> g protein</p>
+  </header>
+
+  <main>
+    <section id="view-meals" class="view" aria-label="Meals">
+      <div class="days" id="days"></div>
+      <div class="card" id="mealSummary"></div>
+      <ul class="card rows" id="mealList"></ul>
+      <p class="note" id="dayNote" hidden></p>
+    </section>
+
+    <section id="view-shop" class="view" aria-label="Shopping list" hidden>
+      <div class="card" id="shopTotals"></div>
+      <div class="form card">
+        <label class="field" for="budget">Weekly budget (kr)
+          <input id="budget" type="text" inputmode="numeric" autocomplete="off">
+        </label>
+        <p class="muted small" style="flex:2 1 180px">Prices are estimates for Føtex. Do the main shop there and use Min Købmand for quick top-ups like eggs, skyr and bread.</p>
+      </div>
+      <p class="note">Check labels for fish. Worcestershire sauce, some pesto and Caesar dressing contain anchovies.</p>
+      <div id="shopList" class="view"></div>
+    </section>
+
+    <section id="view-snacks" class="view" aria-label="Snacks" hidden>
+      <div class="card">
+        <h2>Snacks that fit</h2>
+        <p class="muted small" style="margin-top:4px">Two a day, about 300 to 370 kcal in total. Each plan day pairs a sweet snack with a protein one.</p>
+      </div>
+      <ul class="card rows" id="snackList"></ul>
+      <div class="card">
+        <h3 style="margin-bottom:10px">Snack rules</h3>
+        <ul class="rules">
+          <li>On Sunday, split the honey nuts into 30 g bags or boxes. Never eat from the big bag.</li>
+          <li>Pair a sweet snack with a protein snack. Protein keeps you full for longer.</li>
+          <li>Eat snacks from a bowl, sitting down.</li>
+          <li>Craving something in the evening? Drink sparkling water or a diet soda first and wait 10 minutes.</li>
+          <li>Rest days work the same way. Keep the portions.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="view-weight" class="view" aria-label="Weight" hidden>
+      <div class="card">
+        <div class="sumhead"><h2>Weight</h2><p class="muted small">Goal pace: lose 0.5 kg per week</p></div>
+        <div class="stats" id="wSum"></div>
+        <p class="small" id="wHint" style="margin-top:12px"></p>
+      </div>
+      <div class="card chart">
+        <div id="wChart"></div>
+        <div class="legend"><span>Your weigh-ins</span><span>Target pace</span></div>
+      </div>
+      <form class="card form" id="wForm" autocomplete="off">
+        <label class="field" for="wDate">Date<input id="wDate" type="date"></label>
+        <label class="field" for="wKg">Weight (kg)<input id="wKg" type="text" inputmode="decimal" placeholder="89.4"></label>
+        <button class="btn" type="submit">Add</button>
+        <p class="msg" id="wMsg" style="flex-basis:100%"></p>
+      </form>
+      <ul class="card rows" id="wList"></ul>
+      <p class="muted small">Weigh yourself at the same time each morning, ideally once a week. Judge the trend after two weeks, not single days.</p>
+    </section>
+  </main>
+</div>
+
+<nav class="tabs" aria-label="Sections">
+  <div class="in">
+    <a href="#meals" data-v="meals"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16a8 8 0 0 1-16 0z"/><path d="M9 7c0-1.2 1-1.2 1-2.5M14 7c0-1.2 1-1.2 1-2.5"/></svg>Meals</a>
+    <a href="#shop" data-v="shop"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9h14l-1.5 10h-11z"/><path d="M9 9l3-5 3 5"/></svg>Shop</a>
+    <a href="#snacks" data-v="snacks"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle class="f" cx="9" cy="10" r="1.1"/><circle class="f" cx="14.5" cy="9.5" r="1.1"/><circle class="f" cx="13" cy="14.5" r="1.1"/></svg>Snacks</a>
+    <a href="#weight" data-v="weight"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18l5-6 4 3 7-9"/><path d="M4 20h16"/></svg>Weight</a>
+  </div>
+</nav>
+
+<script>
+(function(){
+'use strict';
+
+/* ---------- data ---------- */
+var TARGET={kcal:2000,protein:150};
+
+var MEALS={
+  bf:{name:'Skyr, oats and berries',detail:'300 g skyr, 50 g oats, 100 g frozen berries, 1 tsp honey. No cooking.',k:450,p:40},
+  chicken:{name:'Air fryer chicken bowl',detail:'200 g chicken breast strips, 15 min at 190°C, shake halfway. 200 g microwave rice, 150 g frozen veg, a spoon of sauce.',k:600,p:52},
+  pasta:{name:'Beef pasta',detail:'150 g lean mince browned, 80 g dry pasta, 200 g tomato sauce, 20 g light cheese. Cook a batch and keep it in the fridge.',k:560,p:46},
+  pork:{name:'Air fryer pork and potatoes',detail:'350 g potato wedges 10 min at 190°C, then add 200 g sliced tenderloin for 10 to 12 min. Serve with salad.',k:550,p:48},
+  eggs:{name:'Egg scramble on rye',detail:'4 eggs and 30 g light cheese in a pan or the microwave, 2 slices rye bread, a handful of veg.',k:570,p:39},
+  steak:{name:'Steak night',detail:'200 g steak, 3 to 4 min per side in a hot pan. 300 g potatoes in the air fryer, frozen veg.',k:590,p:52}
+};
+
+var SNACKS={
+  nuts:{name:'Honey nuts',detail:'30 g, about one small handful',k:180,p:5},
+  skyr:{name:'Skyr with honey',detail:'200 g skyr and 1 tsp honey',k:145,p:22},
+  bar:{name:'Protein bar',detail:'1 bar, check the label for fish-free and sugar',k:200,p:20},
+  pop:{name:'Light popcorn',detail:'1 small bag, about 30 g popped',k:130,p:3},
+  cott:{name:'Cottage cheese and rice cakes',detail:'150 g cottage cheese, 2 rice cakes',k:190,p:19},
+  egg:{name:'2 boiled eggs',detail:'Boil 2 to 4 at a time. Salt and pepper.',k:155,p:13},
+  choc:{name:'Dark chocolate',detail:'20 g, two squares',k:110,p:2}
+};
+
+/* index 0 = Monday */
+var WEEK=[
+  {day:'Monday',lunch:'chicken',dinner:'pasta',snacks:['nuts','skyr'],note:'Dinner is the pasta batch. Cook 3 portions: tonight, Tuesday lunch and Wednesday lunch.'},
+  {day:'Tuesday',lunch:'pasta',dinner:'chicken',snacks:['bar','pop']},
+  {day:'Wednesday',lunch:'pasta',dinner:'pork',snacks:['nuts','cott']},
+  {day:'Thursday',lunch:'chicken',dinner:'eggs',snacks:['egg','nuts']},
+  {day:'Friday',lunch:'eggs',dinner:'pasta',snacks:['bar','skyr'],note:'Dinner is the second pasta batch. Cook 2 portions: tonight and Sunday lunch.'},
+  {day:'Saturday',lunch:'chicken',dinner:'steak',snacks:['cott','choc'],note:'Steak is the one pricey meal. Skip it in a tight week and have the pork instead.'},
+  {day:'Sunday',lunch:'pasta',dinner:'pork',snacks:['nuts','pop'],note:'Prep day, about 15 minutes. Split the honey nuts into 30 g bags and boil a few eggs.'}
+];
+
+var SHOP=[
+  {id:'chicken',s:'Meat and eggs',n:'Frozen chicken breast, no bone',q:'1 kg',p:75},
+  {id:'mince',s:'Meat and eggs',n:'Lean beef mince, max 7% fat',q:'750 g',p:65},
+  {id:'pork',s:'Meat and eggs',n:'Pork tenderloin (svinemørbrad)',q:'500 g',p:50},
+  {id:'eggs',s:'Meat and eggs',n:'Eggs',q:'12',p:30},
+  {id:'steak',s:'Meat and eggs',n:'Steak for Saturday (optional)',q:'1 steak, about 200 g',p:55,opt:true},
+  {id:'skyr',s:'Dairy',n:'Natural skyr',q:'2.5 kg',p:55},
+  {id:'cott',s:'Dairy',n:'Cottage cheese (hytteost)',q:'400 g',p:20},
+  {id:'cheese',s:'Dairy',n:'Light cheese',q:'about 200 g',p:20},
+  {id:'oats',s:'Dry goods',n:'Oats',q:'1 kg',p:15},
+  {id:'rice',s:'Dry goods',n:'Microwave rice pouches',q:'4',p:35},
+  {id:'pasta',s:'Dry goods',n:'Pasta',q:'500 g',p:12},
+  {id:'sauce',s:'Dry goods',n:'Tomato sauce or passata',q:'2 jars',p:20},
+  {id:'rye',s:'Dry goods',n:'Rye bread',q:'1 loaf',p:25},
+  {id:'potato',s:'Fresh and frozen',n:'Potatoes',q:'1.5 kg',p:15},
+  {id:'veg',s:'Fresh and frozen',n:'Frozen vegetable mix',q:'2 bags',p:30},
+  {id:'salad',s:'Fresh and frozen',n:'Salad bags',q:'2',p:25},
+  {id:'berries',s:'Fresh and frozen',n:'Frozen berries',q:'2 bags',p:40},
+  {id:'nuts',s:'Snacks',n:'Honey nuts',q:'1 bag',p:30},
+  {id:'bars',s:'Snacks',n:'Protein bars',q:'2',p:35},
+  {id:'popcorn',s:'Snacks',n:'Light microwave popcorn',q:'1 box',p:20},
+  {id:'ricecakes',s:'Snacks',n:'Rice cakes',q:'1 pack',p:12},
+  {id:'choc',s:'Snacks',n:'Dark chocolate',q:'1 bar',p:15},
+  {id:'honey',s:'First week only',n:'Honey',q:'1 jar',p:30},
+  {id:'oil',s:'First week only',n:'Cooking oil spray or olive oil',q:'1',p:30},
+  {id:'spices',s:'First week only',n:'Spices and a sauce (paprika, garlic, BBQ)',q:'3',p:40}
+];
+
+/* ---------- helpers ---------- */
+function $(s){return document.querySelector(s)}
+var nf=new Intl.NumberFormat('en-GB');
+function fmt(n){return nf.format(Math.round(n))}
+function pad(n){return String(n).padStart(2,'0')}
+function iso(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+function sum(a,f){return a.reduce(function(t,x){return t+f(x)},0)}
+var store={
+  get:function(k,f){try{var v=localStorage.getItem(k);return v==null?f:JSON.parse(v)}catch(e){return f}},
+  set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+};
+
+var now=new Date();
+var todayIso=iso(now);
+var todayIdx=(now.getDay()+6)%7;
+var DAYS_SHORT=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+$('#dateLabel').textContent=now.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+
+/* ---------- meals ---------- */
+var sel=todayIdx;
+var checks=store.get('lg-checks-'+todayIso,[]);
+
+function dayMeals(i){
+  var d=WEEK[i];
+  function mk(id,slot,src){return {id:id,slot:slot,name:src.name,detail:src.detail,k:src.k,p:src.p}}
+  return [
+    mk('bf','Breakfast',MEALS.bf),
+    mk('lunch','Lunch',MEALS[d.lunch]),
+    mk('dinner','Dinner',MEALS[d.dinner]),
+    mk('s1','Snack',SNACKS[d.snacks[0]]),
+    mk('s2','Snack',SNACKS[d.snacks[1]])
+  ];
+}
+function meter(label,val,target,unit,cls){
+  var pct=Math.min(100,val/target*100);
+  return '<div class="meter '+cls+'"><div class="mrow"><span>'+label+'</span><span class="num"><b>'+fmt(val)+'</b> / '+fmt(target)+' '+unit+'</span></div><div class="bar"><i style="width:'+pct.toFixed(1)+'%"></i></div></div>';
+}
+function renderMeals(){
+  var d=WEEK[sel],ms=dayMeals(sel),isToday=sel===todayIdx;
+  var planK=sum(ms,function(m){return m.k}),planP=sum(ms,function(m){return m.p});
+  $('#days').innerHTML=DAYS_SHORT.map(function(s,i){
+    return '<button type="button" class="day'+(i===sel?' on':'')+(i===todayIdx?' today':'')+'" data-act="day" data-i="'+i+'" aria-pressed="'+(i===sel)+'">'+s+'</button>';
+  }).join('');
+  var k=planK,p=planP,title=d.day+' plan',hint='Preview. Ticking meals works on today only.';
+  if(isToday){
+    var eaten=ms.filter(function(m){return checks.indexOf(m.id)>-1});
+    k=sum(eaten,function(m){return m.k});p=sum(eaten,function(m){return m.p});
+    title='Today, '+d.day;hint='Tap a meal when you have eaten it.';
+  }
+  $('#mealSummary').innerHTML=
+    '<div class="sumhead"><h2>'+title+'</h2><p class="muted small num">Plan: '+fmt(planK)+' kcal, '+fmt(planP)+' g protein</p></div>'+
+    meter('Calories',k,TARGET.kcal,'kcal','')+meter('Protein',p,TARGET.protein,'g','p')+
+    '<p class="muted small" style="margin-top:10px">'+hint+'</p>';
+  $('#mealList').innerHTML=ms.map(function(m){
+    var on=isToday&&checks.indexOf(m.id)>-1;
+    var inner='<span class="tick'+(on?' on':'')+'" aria-hidden="true"></span>'+
+      '<span class="mtext"><span class="slot">'+m.slot+'</span><strong>'+m.name+'</strong><span class="detail">'+m.detail+'</span></span>'+
+      '<span class="nums"><b>'+m.k+'</b> kcal<br><b class="p">'+m.p+'</b> g protein</span>';
+    return isToday
+      ? '<li><button type="button" class="rowbtn mealbtn'+(on?' is-done':'')+'" data-act="meal" data-id="'+m.id+'" aria-pressed="'+on+'">'+inner+'</button></li>'
+      : '<li><div class="rowbtn static">'+inner+'</div></li>';
+  }).join('');
+  var note=$('#dayNote');
+  note.hidden=!d.note;note.textContent=d.note||'';
+}
+
+/* ---------- shop ---------- */
+var basket=store.get('lg-basket',[]);
+var budget=store.get('lg-budget',800);
+function renderShop(){
+  var total=sum(SHOP,function(i){return i.p});
+  var opt=sum(SHOP.filter(function(i){return i.opt}),function(i){return i.p});
+  var first=sum(SHOP.filter(function(i){return i.s==='First week only'}),function(i){return i.p});
+  var inB=SHOP.filter(function(i){return basket.indexOf(i.id)>-1});
+  var spare=budget-total;
+  var pct=budget>0?Math.min(100,total/budget*100):100;
+  $('#shopTotals').innerHTML=
+    '<div class="sumhead"><h2>Weekly shop</h2><p class="muted small">Føtex or Min Købmand</p></div>'+
+    '<p class="big">'+fmt(total)+' kr <small>estimated</small></p>'+
+    '<div class="bar'+(spare<0?' over':'')+'" style="margin:10px 0 6px"><i style="width:'+pct.toFixed(1)+'%"></i></div>'+
+    '<p class="small num">'+(spare>=0?'<b>'+fmt(spare)+' kr</b> left of your '+fmt(budget)+' kr budget':'<b>'+fmt(-spare)+' kr</b> over your '+fmt(budget)+' kr budget. Skip the steak or the first-week extras.')+'</p>'+
+    '<p class="muted small num" style="margin-top:4px">Includes '+fmt(first)+' kr of first-week extras and '+fmt(opt)+' kr for the optional steak.</p>'+
+    '<p class="small num" style="margin-top:10px">In basket: <b>'+inB.length+'</b> of '+SHOP.length+' items, '+fmt(sum(inB,function(i){return i.p}))+' kr</p>';
+  var groups=[],seen={};
+  SHOP.forEach(function(i){if(!seen[i.s]){seen[i.s]=1;groups.push(i.s)}});
+  $('#shopList').innerHTML=groups.map(function(g){
+    var items=SHOP.filter(function(i){return i.s===g});
+    return '<div class="shopgroup"><h3>'+g+'</h3><ul class="card rows">'+items.map(function(i){
+      var on=basket.indexOf(i.id)>-1;
+      return '<li><button type="button" class="rowbtn mealbtn'+(on?' is-done':'')+'" data-act="shop" data-id="'+i.id+'" aria-pressed="'+on+'">'+
+        '<span class="tick'+(on?' on':'')+'" aria-hidden="true"></span>'+
+        '<span class="mtext"><strong>'+i.n+'</strong><span class="detail">'+i.q+'</span></span>'+
+        '<span class="price">'+i.p+' kr</span></button></li>';
+    }).join('')+'</ul></div>';
+  }).join('');
+}
+
+/* ---------- snacks ---------- */
+function renderSnacks(){
+  $('#snackList').innerHTML=Object.keys(SNACKS).map(function(id){
+    var s=SNACKS[id];
+    return '<li><div class="rowbtn static"><span class="mtext"><strong>'+s.name+'</strong><span class="detail">'+s.detail+'</span></span>'+
+      '<span class="nums"><b>'+s.k+'</b> kcal<br><b class="p">'+s.p+'</b> g protein</span></div></li>';
+  }).join('');
+}
+
+/* ---------- weight ---------- */
+var weights=store.get('lg-weights',null);
+if(!weights){weights=[{d:todayIso,w:90,seed:true}];store.set('lg-weights',weights)}
+var DAY=864e5;
+function stamp(d){return Date.parse(d+'T12:00:00')}
+function signed(x){return (x>0?'+':x<0?'−':'')+Math.abs(x).toFixed(1)}
+function niceDate(d){return new Date(stamp(d)).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}
+function r1(n){return n.toFixed(1)}
+
+function chartSvg(ws){
+  var W=360,H=220,L=40,R=14,T=14,B=30;
+  var t0=stamp(ws[0].d);
+  var xs=ws.map(function(w){return (stamp(w.d)-t0)/DAY});
+  var span=Math.max(28,Math.ceil((Math.max.apply(null,xs)+7)/7)*7);
+  var start=ws[0].w,slope=0.5/7,tEnd=start-slope*span;
+  var vals=ws.map(function(w){return w.w});
+  var lo=Math.min.apply(null,vals.concat([tEnd]))-0.5,hi=Math.max.apply(null,vals.concat([start]))+0.5;
+  var step=(hi-lo)>12?4:(hi-lo)>6?2:1;
+  lo=Math.floor(lo/step)*step;hi=Math.ceil(hi/step)*step;
+  function X(v){return L+(W-L-R)*v/span}
+  function Y(v){return T+(H-T-B)*(hi-v)/(hi-lo)}
+  var g='',v,d;
+  for(v=lo;v<=hi;v+=step){
+    g+='<line class="grid" x1="'+L+'" x2="'+(W-R)+'" y1="'+r1(Y(v))+'" y2="'+r1(Y(v))+'"/><text class="ax" x="'+(L-6)+'" y="'+r1(Y(v)+4)+'" text-anchor="end">'+v+'</text>';
+  }
+  var wk=span>56?28:span>28?14:7;
+  for(d=0;d<=span;d+=wk){
+    g+='<text class="ax" x="'+r1(X(d))+'" y="'+(H-8)+'" text-anchor="'+(d===0?'start':'middle')+'">'+(d===0?'Start':'W'+(d/7))+'</text>';
+  }
+  var tgt='<line class="target-line" x1="'+r1(X(0))+'" y1="'+r1(Y(start))+'" x2="'+r1(X(span))+'" y2="'+r1(Y(tEnd))+'"/>';
+  var pts=ws.map(function(w,i){return r1(X(xs[i]))+','+r1(Y(w.w))});
+  var line=ws.length>1?'<polyline class="actual" points="'+pts.join(' ')+'"/>':'';
+  var dots=ws.map(function(w,i){return '<circle class="dot" cx="'+r1(X(xs[i]))+'" cy="'+r1(Y(w.w))+'" r="4"/>'}).join('');
+  return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Weight over time compared with a target of 0.5 kg lost per week">'+g+tgt+line+dots+'</svg>';
+}
+
+function renderWeight(){
+  var ws=weights.slice().sort(function(a,b){return a.d<b.d?-1:a.d>b.d?1:0});
+  if(!ws.length){
+    $('#wSum').innerHTML='';
+    $('#wHint').textContent='No weigh-ins yet. Add your first one below.';
+    $('#wChart').innerHTML='';
+    $('#wList').innerHTML='';
+    return;
+  }
+  var first=ws[0],last=ws[ws.length-1];
+  var days=(stamp(last.d)-stamp(first.d))/DAY,change=last.w-first.w;
+  $('#wSum').innerHTML=
+    '<div class="stat"><b>'+r1(first.w)+'</b><span>Start, kg</span></div>'+
+    '<div class="stat"><b>'+r1(last.w)+'</b><span>Latest, kg</span></div>'+
+    '<div class="stat"><b>'+signed(change)+'</b><span>Change, kg</span></div>';
+  var hint;
+  if(days<14){hint='Not enough data for a trend yet. Keep logging for two weeks.'}
+  else{
+    var pace=change/days*7;
+    if(pace<-1.0){hint='Pace: '+signed(pace)+' kg per week. That is faster than 1 kg per week. Add a snack back so your training does not suffer.'}
+    else if(pace>-0.25){hint='Pace: '+signed(pace)+' kg per week. Slower than the goal. Trim about 100 kcal of snacks per day, for example half the honey nuts.'}
+    else{hint='Pace: '+signed(pace)+' kg per week. You are on track.'}
+  }
+  $('#wHint').textContent=hint;
+  $('#wChart').innerHTML=chartSvg(ws);
+  $('#wList').innerHTML=ws.slice().reverse().map(function(w){
+    return '<li><div class="wrow"><span>'+niceDate(w.d)+(w.seed?'<span class="tag">Estimate</span>':'')+'</span>'+
+      '<span style="display:flex;align-items:center;gap:12px"><b class="num">'+r1(w.w)+' kg</b>'+
+      '<button type="button" class="btn ghost" data-act="delw" data-d="'+w.d+'" aria-label="Remove '+niceDate(w.d)+'">Remove</button></span></div></li>';
+  }).join('');
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click',function(e){
+  var t=e.target.closest('[data-act]');
+  if(!t)return;
+  var act=t.getAttribute('data-act'),id=t.getAttribute('data-id'),i;
+  if(act==='day'){sel=parseInt(t.getAttribute('data-i'),10);renderMeals()}
+  else if(act==='meal'){
+    i=checks.indexOf(id);
+    if(i>-1)checks.splice(i,1);else checks.push(id);
+    store.set('lg-checks-'+todayIso,checks);renderMeals();
+  }
+  else if(act==='shop'){
+    i=basket.indexOf(id);
+    if(i>-1)basket.splice(i,1);else basket.push(id);
+    store.set('lg-basket',basket);renderShop();
+  }
+  else if(act==='delw'){
+    var d=t.getAttribute('data-d');
+    weights=weights.filter(function(w){return w.d!==d});
+    store.set('lg-weights',weights);renderWeight();
+  }
+});
+
+var budgetEl=$('#budget');
+budgetEl.value=budget;
+budgetEl.addEventListener('input',function(){
+  var n=parseInt(budgetEl.value.replace(/[^0-9]/g,''),10);
+  budget=isNaN(n)?0:n;
+  store.set('lg-budget',budget);renderShop();
+});
+
+var dateEl=$('#wDate'),kgEl=$('#wKg');
+dateEl.value=todayIso;dateEl.max=todayIso;
+kgEl.value=r1(weights.length?weights.slice().sort(function(a,b){return a.d<b.d?1:-1})[0].w:90);
+$('#wForm').addEventListener('submit',function(e){
+  e.preventDefault();
+  var w=parseFloat(kgEl.value.replace(',','.')),d=dateEl.value;
+  if(!d||isNaN(w)||w<30||w>300){$('#wMsg').textContent='Enter a date and a weight between 30 and 300 kg.';return}
+  $('#wMsg').textContent='';
+  weights=weights.filter(function(x){return x.d!==d});
+  weights.push({d:d,w:Math.round(w*10)/10});
+  store.set('lg-weights',weights);renderWeight();
+});
+
+/* ---------- router ---------- */
+var VIEWS=['meals','shop','snacks','weight'];
+function route(){
+  var h=location.hash.replace('#','');
+  if(VIEWS.indexOf(h)<0)h='meals';
+  VIEWS.forEach(function(v){$('#view-'+v).hidden=v!==h});
+  Array.prototype.forEach.call(document.querySelectorAll('.tabs a'),function(a){
+    if(a.getAttribute('data-v')===h)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');
+  });
+  window.scrollTo(0,0);
+}
+window.addEventListener('hashchange',route);
+
+renderMeals();renderShop();renderSnacks();renderWeight();route();
+})();
+</script>
+
+</html>
